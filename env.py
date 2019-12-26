@@ -23,20 +23,30 @@ def __prompt(question, dtype = bool, default = False):
             resp = input(question)
 
 if __name__ == '__main__':
+    # establish the root directory for this local env
+    root = _os.getcwd()
     # prompt user for env variables
     if not __prompt('Do you have the bbstat source application built locally on your machine?', default=True):
         source_url = 'https://bbstat.herokuapp.com'
     else:
         port = __prompt('Which port number it is configured to run on?', dtype=int, default=3000)
         source_url = f'http://localhost:{port}'
-    compiled_path = __prompt('Specify a path for all compiled csv files', dtype=str, default='compiled')
+    compiled_path = __prompt('Specify a path for all compiled csv files', dtype=str, default='./build')
+    # ensure compiled_path is absolute
+    compiled_path = _os.path.abspath(_os.path.expanduser(compiled_path))
+    # make directory for compiled_path if it does not exist
+    if not _os.path.exists(compiled_path):
+        _os.makedirs(compiled_path)
+    # construct .env file
+    ENV = [
+        f'ROOT={root}',
+        f'SOURCE_URL={source_url}',
+        f'COMPILED_PATH={compiled_path}',
+    ]
+    print('','Local Env Config:', *(f'  {l}' for l in ENV), sep='\n')
     # write .env file
     with open('.env', 'w') as f:
-        print(*[
-            f'SOURCE_URL={source_url}',
-            f'COMPILED_PATH={compiled_path}',
-        ], sep='\n', file=f)
-    print('Local env setup complete');
+        print(*ENV, sep='\n', file=f)
     exit()
 
 def __parse_env():
@@ -44,7 +54,6 @@ def __parse_env():
     # parse .env file and add all key value pairs to globals dict
     with open('.env') as f:
         for k,v in [(l[:l.index('=')],l[l.index('=')+1:]) for l in f.read().strip().split('\n')]:
-            print(k, v);
             __all__ = __all__ + [k]
             globals()[k] = v
 
