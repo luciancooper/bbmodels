@@ -261,6 +261,17 @@ def _compile(year, *periods):
             _merge(tempdir, year, p).to_csv(outfile)
             print(f'wrote {outfile}')
 
+def _download(year, period):
+    res = requests.get(f'https://cdn.jsdelivr.net/gh/l-cooper/bbstat-files/compiled/{year}_{period}.csv')
+    # if request fails, report error
+    if res.status_code != 200:
+        print(f"HTTP [{res.status_code}] {year}_{period}.csv", file=sys.stderr)
+        return False
+    # return StringIO instance
+    with open(os.path.join(env.COMPILED_PATH, f'{year}_{period}.csv'), 'w') as f:
+        f.write(res.text)
+    return True
+
 def parse_ints(arg):
     ints = set()
     for a in arg.split(','):
@@ -277,7 +288,12 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(prog='compiler',description='Compile dataset files')
     parser.add_argument('years',type=parse_ints,help='seasons to compile')
-    parser.add_argument("periods",type=int, nargs='+', help='period values')
+    parser.add_argument('periods',type=int, nargs='+', help='period values')
+    parser.add_argument('-dl', '--download', action='store_true', help='download files from online repository')
     args = parser.parse_args()
-    for year in args.years:
-        _compile(year, *args.periods)
+    if args.download:
+        for year, period in tqdm([*itertools.product(args.years, args.periods)], desc = f'downloading csvs', leave=True, **tqdm_kwargs):
+            _download(year, period)
+    else:
+        for year in args.years:
+            _compile(year, *args.periods)
