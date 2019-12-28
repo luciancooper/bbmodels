@@ -9,8 +9,12 @@ def data(period):
     files = sorted([f for f in os.listdir(env.COMPILED_PATH) if f.endswith(f'_{period}.csv')])
     return pd.concat([pd.read_csv(os.path.join(env.COMPILED_PATH, f)) for f in files]).sort_values(['gid', 'home']).reset_index(drop=True)
 
-def features(period):
-    df = data(period)
+def allData():
+    i = np.array([[f[:4],f[5:-4]] for f in os.listdir(env.COMPILED_PATH) if f.endswith('.csv')], dtype=int)
+    i = i[np.lexsort(i.T)]
+    return {p:pd.concat([pd.read_csv(os.path.join(env.COMPILED_PATH, f'{y}_{p}.csv')) for y in i[:,0][i[:,1]==p]]).sort_values(['gid', 'home']).reset_index(drop=True) for p in np.unique(i[:,1])}
+
+def calcFeatures(df):
     # expected win rate
     expected_win = 1 / 1 + (df['allowed'] / df['scored']) ** 2
     # basic win record
@@ -33,7 +37,6 @@ def features(period):
     slg = (df['bS'] + 2 * df['bD'] + 3 * df['bT'] + 4 * df['bHR']) / ab
     obp = (hits + df[['bBB','bHBP']].sum(axis=1)) / (ab + df[['bBB','bHBP','bSF']].sum(axis=1))
     ops = slg + obp
-    
     return pd.concat([df[['gid','team','gameNumber', 'home','spread','pn', 'dn']], pd.DataFrame({
         # scores
         'win': (df['spread'] > 0).astype(int),
@@ -60,3 +63,9 @@ def features(period):
         'ptb': (df['pS'] + 2 * df['pD'] + 3 * df['pT'] + 4 * df['pHR']) / df['pBF'],
         'phits': df[['pS','pD','pT','pHR']].sum(axis=1) / df['pBF'],
     }, index=df.index)], axis=1).replace([np.inf, -np.inf], np.nan)
+
+def features(period):
+    return calcFeatures(data(period))
+
+def allFeatures():
+    return { p: calcFeatures(df) for p,df in allData().items() }
